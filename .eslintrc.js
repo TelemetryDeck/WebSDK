@@ -2,17 +2,20 @@ module.exports = {
   env: {
     browser: true,
   },
+  globals: {
+    globalThis: true,
+  },
   plugins: ['prettier', 'unicorn', 'jest'],
   extends: [
     'eslint:recommended',
     'plugin:prettier/recommended',
     'plugin:unicorn/recommended',
-    'plugin:jest/recommended',
+    'plugin:playwright/recommended',
   ],
 
   overrides: [
     {
-      files: ['.eslintrc.js', 'jest.config.js', 'jest.setup.js'],
+      files: ['.eslintrc.js', 'playwright.config.js'],
       env: {
         browser: false,
         node: true,
@@ -24,7 +27,14 @@ module.exports = {
     {
       files: ['tests/**/*'],
       env: {
-        jest: true,
+        browser: true,
+        node: true,
+      },
+      globals: {
+        globalThis: true,
+      },
+      rules: {
+        'unicorn/prefer-module': 'off',
       },
     },
   ],
