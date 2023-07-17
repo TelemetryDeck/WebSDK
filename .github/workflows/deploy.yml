@@ -1,0 +1,33 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  PNPM_VERSION: 6.19.0
+
+jobs:
+  upload:
+    name: Building and Uploading
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: pnpm/action-setup@v2.0.1
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v2
+        with:
+          node-version: 16.x
+          cache: pnpm
+      - run: pnpm install
+      - run: pnpm build
+      - run: mv dist websdk
+      - uses: bacongobbler/azure-blob-storage-upload@main
+        with:
+          source_dir: websdk
+          container_name: websdk
+          account_name: telemetrydeckcdn
+          sas_token: ${{ secrets.CDN_AZURE_SAS_TOKEN }}
+          overwrite: 'true'
