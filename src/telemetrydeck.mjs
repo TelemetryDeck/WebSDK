@@ -3,6 +3,7 @@ import { assert } from './utils/assert.mjs';
 
 const script = document.currentScript;
 const appId = script.dataset.appId;
+const isTestMode = script.dataset.isTestMode === 'true';
 const api = script.dataset.api ?? 'https://nom.telemetrydeck.com/v2/w/';
 const { language: locale } = navigator;
 const { location = {} } = globalThis;
@@ -18,6 +19,7 @@ const body = {
 };
 
 if (
+  isTestMode ||
   /^localhost$|^127(\.\d+){0,2}\.\d+$|^\[::1?]$/.test(location.hostname) ||
   'file:' === location.protocol
 ) {
