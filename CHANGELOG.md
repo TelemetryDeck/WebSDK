@@ -1,8 +1,7 @@
+## v1.2.0 (unreleased)
 
-
-
-
-
+#### :rocket: Enhancement
+* Send a `TelemetryDeck.Web.pageLeave` signal when a page is hidden or unloaded, carrying scroll depth and engaged time as `TelemetryDeck.PageEngagement.*` parameters. On by default, opt out with `data-page-engagement="false"`.
 
 ## v1.0.5 (2022-05-27)
 
