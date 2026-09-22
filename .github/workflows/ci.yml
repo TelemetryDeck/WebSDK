@@ -26,7 +26,8 @@ jobs:
   test:
     name: Testing
     timeout-minutes: 60
-    runs-on: ubuntu-latest
+    # Playwright 1.36 installs system packages that only exist up to Ubuntu 22.04.
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
