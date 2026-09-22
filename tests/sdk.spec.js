@@ -4,6 +4,7 @@ const { test, expect } = require('@playwright/test');
 const API = 'https://nom.telemetrydeck.com/v2/w/';
 const APP_ID = 'AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE';
 const PAGE_LEAVE = 'TelemetryDeck.Web.pageLeave';
+const LINK_CLICK = 'TelemetryDeck.Web.linkClick';
 
 const isPageLeave = (request) =>
   request.url() === API && request.postDataJSON()['type'] === PAGE_LEAVE;
@@ -11,10 +12,34 @@ const isPageLeave = (request) =>
 const isPageview = (request) =>
   request.url() === API && request.postDataJSON()['type'] === undefined;
 
+const isLinkClick = (request) =>
+  request.url() === API && request.postDataJSON()['type'] === LINK_CLICK;
+
+// Collects the bodies of all link click signals sent while the test runs.
+const collectLinkClicks = (page) => {
+  const bodies = [];
+
+  page.on('request', (request) => {
+    if (isLinkClick(request)) {
+      bodies.push(request.postDataJSON());
+    }
+  });
+
+  return bodies;
+};
+
 test.beforeEach(async ({ page }) => {
   await page.route(API, async (route) => {
     await route.fulfill({
       body: 'Likely OK',
+    });
+  });
+
+  // Outbound destinations never leave the test environment.
+  await page.route('https://example.com/**', async (route) => {
+    await route.fulfill({
+      contentType: 'text/html',
+      body: '<!DOCTYPE html><title>Example</title><h1>Example</h1>',
     });
   });
 });
@@ -187,4 +212,130 @@ test('No page leave signal is sent when `data-page-engagement` is "false"', asyn
   expect(
     requests.filter((body) => body['url'] === 'http://127.0.0.1:3000/page-engagement-disabled.html')
   ).toHaveLength(1);
+});
+
+test('Clicking an outbound link sends a link click signal', async ({ page }) => {
+  const linkClicks = collectLinkClicks(page);
+
+  const pageviewPromise = page.waitForRequest(isPageview);
+  await page.goto('/outbound-links.html');
+  await pageviewPromise;
+
+  const linkClickPromise = page.waitForRequest(isLinkClick);
+
+  // The click lands on the <span> inside the link.
+  await page.getByTestId('outbound').locator('span').click();
+
+  const request = await linkClickPromise;
+  await page.waitForURL('https://example.com/target?utm_source=td#top');
+
+  const body = request.postDataJSON();
+
+  expect(request.method()).toBe('POST');
+  expect(body['appID']).toBe(APP_ID);
+  expect(body['url']).toBe('http://127.0.0.1:3000/outbound-links.html');
+  expect(body['type']).toBe(LINK_CLICK);
+  expect(body['payload']).toEqual({
+    'TelemetryDeck.Link.url': 'https://example.com/target?utm_source=td#top',
+    'TelemetryDeck.Link.host': 'example.com',
+    'TelemetryDeck.Link.isOutbound': 'true',
+  });
+  expect(linkClicks).toHaveLength(1);
+});
+
+test('Internal, mailto and ignored links do not send a link click signal', async ({ page }) => {
+  const linkClicks = collectLinkClicks(page);
+
+  const pageviewPromise = page.waitForRequest(isPageview);
+  await page.goto('/outbound-links.html');
+  await pageviewPromise;
+
+  // Neither of these navigates: the ignored link is opened in a new window
+  // and the mailto link has no handler.
+  await page.getByTestId('ignored').click({ modifiers: ['Shift'] });
+  await page.getByTestId('mailto').click();
+
+  const nextPageviewPromise = page.waitForRequest(
+    (request) =>
+      isPageview(request) &&
+      request.postDataJSON()['url'] === 'http://127.0.0.1:3000/simple-request.html'
+  );
+  await page.getByTestId('internal').click();
+  await nextPageviewPromise;
+
+  expect(linkClicks).toHaveLength(0);
+});
+
+test('A button marked with `data-td-link` sends a link click signal', async ({ page }) => {
+  const pageviewPromise = page.waitForRequest(isPageview);
+  await page.goto('/outbound-links.html');
+  await pageviewPromise;
+
+  const linkClickPromise = page.waitForRequest(isLinkClick);
+  await page.getByTestId('button').click();
+  const request = await linkClickPromise;
+  await page.waitForURL('https://example.com/button');
+
+  expect(request.postDataJSON()['payload']).toEqual({
+    'TelemetryDeck.Link.url': 'https://example.com/button',
+    'TelemetryDeck.Link.host': 'example.com',
+    'TelemetryDeck.Link.isOutbound': 'true',
+  });
+});
+
+test('Links added to the page after load are tracked', async ({ page }) => {
+  const pageviewPromise = page.waitForRequest(isPageview);
+  await page.goto('/outbound-links.html');
+  await pageviewPromise;
+
+  await page.evaluate(() => {
+    const link = document.createElement('a');
+    link.href = 'https://example.com/dynamic';
+    link.dataset.testid = 'dynamic-link';
+    link.textContent = 'Dynamic link';
+    document.querySelector('[data-testid="dynamic"]').append(link);
+  });
+
+  const linkClickPromise = page.waitForRequest(isLinkClick);
+  await page.getByTestId('dynamic-link').click();
+  const request = await linkClickPromise;
+
+  expect(request.postDataJSON()['payload']['TelemetryDeck.Link.url']).toBe(
+    'https://example.com/dynamic'
+  );
+});
+
+test('Middle clicking an outbound link sends a link click signal', async ({ page }) => {
+  const pageviewPromise = page.waitForRequest(isPageview);
+  await page.goto('/outbound-links.html');
+  await pageviewPromise;
+
+  const linkClickPromise = page.waitForRequest(isLinkClick);
+  await page.getByTestId('outbound').click({ button: 'middle' });
+  const request = await linkClickPromise;
+
+  expect(request.postDataJSON()['payload']['TelemetryDeck.Link.url']).toBe(
+    'https://example.com/target?utm_source=td#top'
+  );
+});
+
+test('Only `data-td-link` elements are tracked when `data-outbound-links` is "false"', async ({
+  page,
+}) => {
+  const linkClicks = collectLinkClicks(page);
+
+  const pageviewPromise = page.waitForRequest(isPageview);
+  await page.goto('/outbound-links-disabled.html');
+  await pageviewPromise;
+
+  // Opened in a new window so the page stays put.
+  await page.getByTestId('outbound').click({ modifiers: ['Shift'] });
+
+  const linkClickPromise = page.waitForRequest(isLinkClick);
+  await page.getByTestId('button').click();
+  await linkClickPromise;
+  await page.waitForURL('https://example.com/button');
+
+  expect(linkClicks).toHaveLength(1);
+  expect(linkClicks[0]['payload']['TelemetryDeck.Link.url']).toBe('https://example.com/button');
 });

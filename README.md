@@ -24,7 +24,7 @@ Once you have your App ID, edit the source code of your website and add the foll
 
 ## Signals
 
-The SDK sends two signals per page load.
+The SDK sends a `pageview` when a page loads, a `TelemetryDeck.Web.pageLeave` signal when it is left, and a `TelemetryDeck.Web.linkClick` signal for every click on an outbound link.
 
 ### `pageview`
 
@@ -72,6 +72,74 @@ Page engagement tracking is on by default. To turn it off, add `data-page-engage
       "fieldName": "TelemetryDeck.PageEngagement.scrollDepth"
     }
   ]
+}
+```
+
+### `TelemetryDeck.Web.linkClick`
+
+Sent whenever a visitor clicks a link that leads to another site (a different host than the current page, over `http` or `https`). Same-site links, `mailto:` and `tel:` links are not tracked. The signal is sent with `navigator.sendBeacon`, so it never delays the navigation, and it works for links that are added to the page after it has loaded.
+
+| Parameter                       | Value                                                                                               |
+| ------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `TelemetryDeck.Link.url`        | The absolute destination URL. Credentials in the URL are removed; query and fragment are kept.      |
+| `TelemetryDeck.Link.host`       | The destination host name, e.g. `example.com`. Handy for a "top outbound sites" chart.              |
+| `TelemetryDeck.Link.isOutbound` | `"true"` when the destination is on another site, `"false"` for explicitly tracked same-site links. |
+
+The signal carries the same `url` and `referrer` as the `pageview`, so you can see which pages send visitors where.
+
+#### Tracking buttons and chosen links
+
+Add `data-td-link` to any element to track clicks on it, whether or not it is an outbound link. On a link the attribute can be left empty; on a button or any other element, set it to the destination:
+
+```html
+<a href="/pricing" data-td-link>Pricing</a>
+
+<button
+  data-td-link="https://buy.example.com/checkout"
+  onclick="location.href = 'https://buy.example.com/checkout'"
+>
+  Buy now
+</button>
+```
+
+Add `data-td-ignore` to a link, or to any of its ancestors, to never track it:
+
+```html
+<a href="https://example.com" data-td-ignore>Not tracked</a>
+
+<nav data-td-ignore>
+  <a href="https://mastodon.social/@example">Not tracked either</a>
+</nav>
+```
+
+#### Tracking only chosen links
+
+To track only the links you marked with `data-td-link` and no other outbound links, add `data-outbound-links="false"` to the script tag:
+
+```html
+<script
+  async
+  src="https://cdn.telemetrydeck.com/websdk/telemetrydeck.min.js"
+  data-app-id="<YOUR APP ID>"
+  data-outbound-links="false"
+></script>
+```
+
+#### Example: most clicked outbound sites
+
+```json
+{
+  "queryType": "topN",
+  "granularity": "all",
+  "filter": {
+    "type": "selector",
+    "dimension": "type",
+    "value": "TelemetryDeck.Web.linkClick"
+  },
+  "dimension": { "type": "default", "dimension": "TelemetryDeck.Link.host", "outputName": "Site" },
+  "metric": { "type": "numeric", "metric": "Clicks" },
+  "threshold": 10,
+  "aggregations": [{ "type": "longSum", "name": "Clicks", "fieldName": "count" }]
 }
 ```
 

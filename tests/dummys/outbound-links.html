@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Outbound Links</title>
+<script
+  defer
+  data-app-id="AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE"
+  src="http://127.0.0.1:3001/telemetrydeck.min.js"
+></script>
+<h1>Outbound Links</h1>
+<p>
+  <a data-testid="outbound" href="https://example.com/target?utm_source=td#top">
+    <span>Outbound link</span>
+  </a>
+</p>
+<p><a data-testid="internal" href="/simple-request.html">Internal link</a></p>
+<p><a data-testid="ignored" href="https://example.com/ignored" data-td-ignore>Ignored link</a></p>
+<p><a data-testid="mailto" href="mailto:hello@example.com">Mail link</a></p>
+<p>
+  <button
+    data-testid="button"
+    data-td-link="https://example.com/button"
+    onclick="location.href = 'https://example.com/button'"
+  >
+    Button that redirects
+  </button>
+</p>
+<p data-testid="dynamic"></p>
