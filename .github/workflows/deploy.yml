@@ -5,21 +5,18 @@ on:
     branches:
       - main
 
-env:
-  PNPM_VERSION: 6.19.0
-
 jobs:
   upload:
     name: Building and Uploading
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: pnpm/action-setup@v2.0.1
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v2
+          version: 8
+      - uses: actions/setup-node@v7
         with:
-          node-version: 16.x
+          node-version: 24
           cache: pnpm
       - run: pnpm install
       - run: pnpm build
