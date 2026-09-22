@@ -15,7 +15,8 @@ Note that if you are a programmer working on a node package based JavaScript app
 Once you have your App ID, edit the source code of your website and add the following code snippet to the `<head>` section of every page, making sure to replace `<YOUR APP ID>` with your actual App ID:
 
 ```html
-<script async
+<script
+  async
   src="https://cdn.telemetrydeck.com/websdk/telemetrydeck.min.js"
   data-app-id="<YOUR APP ID>"
 ></script>
@@ -45,6 +46,7 @@ Page engagement tracking is on by default. To turn it off, add `data-page-engage
 
 ```html
 <script
+  async
   src="https://cdn.telemetrydeck.com/websdk/telemetrydeck.min.js"
   data-app-id="<YOUR APP ID>"
   data-page-engagement="false"

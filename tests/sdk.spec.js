@@ -34,6 +34,21 @@ test('Loads and calls TelemetryDeck Web SDK', async ({ page }) => {
   expect(request.postDataJSON()['type']).toBeUndefined();
 });
 
+test('Works when the script tag is loaded with `async`', async ({ page }) => {
+  const pageviewPromise = page.waitForRequest(isPageview);
+  await page.goto('/async-request.html');
+  const pageview = await pageviewPromise;
+
+  expect(pageview.postDataJSON()['url']).toBe('http://127.0.0.1:3000/async-request.html');
+  expect(pageview.postDataJSON()['appID']).toBe(APP_ID);
+
+  const pageLeavePromise = page.waitForRequest(isPageLeave);
+  await page.goto('/missing-app-id.html');
+  const pageLeave = await pageLeavePromise;
+
+  expect(pageLeave.postDataJSON()['url']).toBe('http://127.0.0.1:3000/async-request.html');
+});
+
 test('Script fails if `data-app-id` is not set', async ({ page }) => {
   const exceptions = [];
 
