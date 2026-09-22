@@ -22,17 +22,17 @@ Once you have your App ID, edit the source code of your website and add the foll
 ></script>
 ```
 
-## Signals
+## Events
 
-The SDK sends two signals per page load.
+The SDK sends two events per page load to the Web events v3 endpoint (`https://nom.telemetrydeck.com/v3/w/`). Each request carries one flat event; every parameter sits at the top level of the event and keeps its JSON type. The ingest server fills in `receivedAt` and the default `type` (`pageview`), and derives browser, system, location and campaign data from the request itself.
 
 ### `pageview`
 
-Sent as soon as the script loads. Contains the page `url`, the `referrer`, the browser `locale` and the SDK version.
+Sent as soon as the script loads. Contains the page `url`, the `referrer`, the browser `locale`, `isTestMode` (`"true"` or `"false"`) and the SDK version (`TelemetryDeck.SDK.name`, `TelemetryDeck.SDK.version` and `TelemetryDeck.SDK.nameAndVersion`).
 
 ### `TelemetryDeck.Web.pageLeave`
 
-Sent once per page load, the first time the page is hidden or unloaded (tab switched, tab closed, navigation to another page). It reports how far visitors scrolled and how long the page was actually visible:
+Sent once per page load, the first time the page is hidden or unloaded (tab switched, tab closed, navigation to another page). It reports how far visitors scrolled and how long the page was actually visible, as top-level parameters of the event:
 
 | Parameter                                           | Value                                                                                                                       |
 | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
@@ -40,7 +40,7 @@ Sent once per page load, the first time the page is hidden or unloaded (tab swit
 | `TelemetryDeck.PageEngagement.scrollDepthMilestone` | The highest milestone reached: `"0"`, `"25"`, `"50"`, `"75"` or `"100"`. Handy as a dimension for donut charts and funnels. |
 | `TelemetryDeck.PageEngagement.engagedSeconds`       | Seconds the page was visible in the foreground, rounded to whole seconds.                                                   |
 
-The signal carries the same `url` and `referrer` as the `pageview`, so both can be joined per page.
+The event carries the same `url` and `referrer` as the `pageview`, so both can be joined per page.
 
 Page engagement tracking is on by default. To turn it off, add `data-page-engagement="false"` to the script tag:
 
@@ -77,7 +77,7 @@ Page engagement tracking is on by default. To turn it off, add `data-page-engage
 
 ## Testing locally
 
-Signals sent from `localhost`, `127.0.0.1` or `file:` URLs are marked as test mode automatically. You can force test mode with `data-is-test-mode="true"` and point the SDK at a different ingest server with `data-api`.
+Events sent from `localhost`, `127.0.0.1` or `file:` URLs are marked as test mode automatically. You can force test mode with `data-is-test-mode="true"` and point the SDK at a different ingest server with `data-api` (for example `data-api="http://localhost:8080/v3/w/"` for a locally running ingest server).
 
 ## 📱 You need an App ID
 

@@ -1,4 +1,4 @@
-import { buildBody, sendBeacon } from './send.mjs';
+import { buildEvent, sendBeacon } from './send.mjs';
 
 const MILESTONES = [100, 75, 50, 25];
 
@@ -67,13 +67,11 @@ export function trackPageEngagement() {
     removeEventListener('resize', scheduleUpdate);
 
     sendBeacon(
-      buildBody({
+      buildEvent({
         type: 'TelemetryDeck.Web.pageLeave',
-        payload: {
-          'TelemetryDeck.PageEngagement.scrollDepth': maxDepth,
-          'TelemetryDeck.PageEngagement.scrollDepthMilestone': milestone(maxDepth),
-          'TelemetryDeck.PageEngagement.engagedSeconds': Math.round(engagedMilliseconds / 1000),
-        },
+        'TelemetryDeck.PageEngagement.scrollDepth': maxDepth,
+        'TelemetryDeck.PageEngagement.scrollDepthMilestone': milestone(maxDepth),
+        'TelemetryDeck.PageEngagement.engagedSeconds': Math.round(engagedMilliseconds / 1000),
       })
     );
   };

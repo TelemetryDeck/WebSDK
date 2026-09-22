@@ -5,7 +5,7 @@ const dataset = script ? script.dataset : {};
 const { location = {} } = globalThis;
 
 export const appId = dataset.appId;
-export const api = dataset.api ?? 'https://nom.telemetrydeck.com/v2/w/';
+export const api = dataset.api ?? 'https://nom.telemetrydeck.com/v3/w/';
 
 // Page engagement (scroll depth, engaged time) is on by default; opt out with
 // `data-page-engagement="false"`.

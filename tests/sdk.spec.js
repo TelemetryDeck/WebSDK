@@ -1,20 +1,21 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
 
-const API = 'https://nom.telemetrydeck.com/v2/w/';
+const API = 'https://nom.telemetrydeck.com/v3/w/';
 const APP_ID = 'AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE';
 const PAGE_LEAVE = 'TelemetryDeck.Web.pageLeave';
 
-const isPageLeave = (request) =>
-  request.url() === API && request.postDataJSON()['type'] === PAGE_LEAVE;
+// Every request carries exactly one flat event.
+const eventOf = (request) => request.postDataJSON();
 
-const isPageview = (request) =>
-  request.url() === API && request.postDataJSON()['type'] === undefined;
+const isPageLeave = (request) => request.url() === API && eventOf(request)['type'] === PAGE_LEAVE;
+
+const isPageview = (request) => request.url() === API && eventOf(request)['type'] === undefined;
 
 test.beforeEach(async ({ page }) => {
   await page.route(API, async (route) => {
     await route.fulfill({
-      body: 'Likely OK',
+      body: 'OK',
     });
   });
 });
@@ -25,28 +26,50 @@ test('Loads and calls TelemetryDeck Web SDK', async ({ page }) => {
   await page.goto('/simple-request.html');
 
   const request = await requestPromise;
+  const event = eventOf(request);
 
   expect(request.method()).toBe('POST');
-  expect(request.postDataJSON()).toHaveProperty('url');
-  expect(request.postDataJSON()).toHaveProperty('appID');
-  expect(request.postDataJSON()['url']).toBe('http://127.0.0.1:3000/simple-request.html');
-  expect(request.postDataJSON()['appID']).toBe(APP_ID);
-  expect(request.postDataJSON()['type']).toBeUndefined();
+  expect(request.headers()['content-type']).toBe('application/json');
+  expect(Array.isArray(event)).toBe(false);
+  expect(event).toHaveProperty('url');
+  expect(event).toHaveProperty('appID');
+  expect(event['url']).toBe('http://127.0.0.1:3000/simple-request.html');
+  expect(event['appID']).toBe(APP_ID);
+  expect(event['type']).toBeUndefined();
+  expect(event['receivedAt']).toBeUndefined();
+  expect(event['payload']).toBeUndefined();
+  expect(event['locale']).toEqual(expect.any(String));
+  expect(event['telemetryClientVersion']).toBeUndefined();
+  expect(event['TelemetryDeck.SDK.name']).toBe('WebSDK');
+  expect(event['TelemetryDeck.SDK.version']).toMatch(/^\d+\.\d+\.\d+/);
+  expect(event['TelemetryDeck.SDK.nameAndVersion']).toBe(
+    `WebSDK ${event['TelemetryDeck.SDK.version']}`
+  );
+});
+
+test('Marks events from 127.0.0.1 as test mode, as a string', async ({ page }) => {
+  const requestPromise = page.waitForRequest(isPageview);
+
+  await page.goto('/simple-request.html');
+
+  const event = eventOf(await requestPromise);
+
+  expect(event['isTestMode']).toBe('true');
 });
 
 test('Works when the script tag is loaded with `async`', async ({ page }) => {
   const pageviewPromise = page.waitForRequest(isPageview);
   await page.goto('/async-request.html');
-  const pageview = await pageviewPromise;
+  const pageview = eventOf(await pageviewPromise);
 
-  expect(pageview.postDataJSON()['url']).toBe('http://127.0.0.1:3000/async-request.html');
-  expect(pageview.postDataJSON()['appID']).toBe(APP_ID);
+  expect(pageview['url']).toBe('http://127.0.0.1:3000/async-request.html');
+  expect(pageview['appID']).toBe(APP_ID);
 
   const pageLeavePromise = page.waitForRequest(isPageLeave);
   await page.goto('/missing-app-id.html');
-  const pageLeave = await pageLeavePromise;
+  const pageLeave = eventOf(await pageLeavePromise);
 
-  expect(pageLeave.postDataJSON()['url']).toBe('http://127.0.0.1:3000/async-request.html');
+  expect(pageLeave['url']).toBe('http://127.0.0.1:3000/async-request.html');
 });
 
 test('Script fails if `data-app-id` is not set', async ({ page }) => {
@@ -78,26 +101,24 @@ test('Referrer is set after navigating from one page to another', async ({ page 
 
   const requestPromise = page.waitForRequest(
     (request) =>
-      isPageview(request) &&
-      request.postDataJSON()['url'] === 'http://127.0.0.1:3000/simple-request.html'
+      isPageview(request) && eventOf(request)['url'] === 'http://127.0.0.1:3000/simple-request.html'
   );
 
   await page.getByTestId('next-page-link').click();
 
   const request = await requestPromise;
+  const event = eventOf(request);
 
   expect(request.method()).toBe('POST');
-  expect(request.postDataJSON()).toHaveProperty('url');
-  expect(request.postDataJSON()).toHaveProperty('appID');
-  expect(request.postDataJSON()).toHaveProperty('referrer');
-  expect(request.postDataJSON()['url']).toBe('http://127.0.0.1:3000/simple-request.html');
-  expect(request.postDataJSON()['appID']).toBe(APP_ID);
-  expect(request.postDataJSON()['referrer']).toBe(
-    'http://127.0.0.1:3000/request-with-referrer.html'
-  );
+  expect(event).toHaveProperty('url');
+  expect(event).toHaveProperty('appID');
+  expect(event).toHaveProperty('referrer');
+  expect(event['url']).toBe('http://127.0.0.1:3000/simple-request.html');
+  expect(event['appID']).toBe(APP_ID);
+  expect(event['referrer']).toBe('http://127.0.0.1:3000/request-with-referrer.html');
 });
 
-test('Sends a page leave signal with scroll depth and engaged time', async ({ page }) => {
+test('Sends a page leave event with scroll depth and engaged time', async ({ page }) => {
   const pageLeaveRequests = [];
   page.on('request', (request) => {
     if (isPageLeave(request)) {
@@ -119,8 +140,7 @@ test('Sends a page leave signal with scroll depth and engaged time', async ({ pa
   const pageLeavePromise = page.waitForRequest(isPageLeave);
   const nextPageviewPromise = page.waitForRequest(
     (request) =>
-      isPageview(request) &&
-      request.postDataJSON()['url'] === 'http://127.0.0.1:3000/simple-request.html'
+      isPageview(request) && eventOf(request)['url'] === 'http://127.0.0.1:3000/simple-request.html'
   );
 
   await page.getByTestId('next-page-link').click();
@@ -128,18 +148,22 @@ test('Sends a page leave signal with scroll depth and engaged time', async ({ pa
   const request = await pageLeavePromise;
   await nextPageviewPromise;
 
-  const body = request.postDataJSON();
+  const event = eventOf(request);
 
   expect(request.method()).toBe('POST');
-  expect(body['appID']).toBe(APP_ID);
-  expect(body['url']).toBe('http://127.0.0.1:3000/page-engagement.html');
-  expect(body['type']).toBe(PAGE_LEAVE);
-  expect(body['payload']['TelemetryDeck.PageEngagement.scrollDepth']).toBeGreaterThanOrEqual(52);
-  expect(body['payload']['TelemetryDeck.PageEngagement.scrollDepth']).toBeLessThanOrEqual(58);
-  expect(body['payload']['TelemetryDeck.PageEngagement.scrollDepthMilestone']).toBe('50');
-  expect(body['payload']['TelemetryDeck.PageEngagement.engagedSeconds']).toBeGreaterThanOrEqual(1);
+  expect(event['appID']).toBe(APP_ID);
+  expect(event['url']).toBe('http://127.0.0.1:3000/page-engagement.html');
+  expect(event['type']).toBe(PAGE_LEAVE);
+  // Page engagement parameters sit at the top level of the flat event, and
+  // the numeric ones stay numbers.
+  expect(event['payload']).toBeUndefined();
+  expect(event['TelemetryDeck.PageEngagement.scrollDepth']).toBeGreaterThanOrEqual(52);
+  expect(event['TelemetryDeck.PageEngagement.scrollDepth']).toBeLessThanOrEqual(58);
+  expect(event['TelemetryDeck.PageEngagement.scrollDepthMilestone']).toBe('50');
+  expect(event['TelemetryDeck.PageEngagement.engagedSeconds']).toBeGreaterThanOrEqual(1);
+  expect(typeof event['TelemetryDeck.PageEngagement.engagedSeconds']).toBe('number');
 
-  // visibilitychange and pagehide both fire on navigation; only one signal is sent.
+  // visibilitychange and pagehide both fire on navigation; only one event is sent.
   expect(pageLeaveRequests).toHaveLength(1);
 });
 
@@ -152,19 +176,18 @@ test('A page that fits the viewport reports a scroll depth of 100', async ({ pag
 
   await page.goto('/missing-app-id.html');
 
-  const request = await pageLeavePromise;
-  const body = request.postDataJSON();
+  const event = eventOf(await pageLeavePromise);
 
-  expect(body['url']).toBe('http://127.0.0.1:3000/simple-request.html');
-  expect(body['payload']['TelemetryDeck.PageEngagement.scrollDepth']).toBe(100);
-  expect(body['payload']['TelemetryDeck.PageEngagement.scrollDepthMilestone']).toBe('100');
+  expect(event['url']).toBe('http://127.0.0.1:3000/simple-request.html');
+  expect(event['TelemetryDeck.PageEngagement.scrollDepth']).toBe(100);
+  expect(event['TelemetryDeck.PageEngagement.scrollDepthMilestone']).toBe('100');
 });
 
-test('No page leave signal is sent when `data-page-engagement` is "false"', async ({ page }) => {
-  const requests = [];
+test('No page leave event is sent when `data-page-engagement` is "false"', async ({ page }) => {
+  const events = [];
   page.on('request', (request) => {
     if (request.url() === API) {
-      requests.push(request.postDataJSON());
+      events.push(eventOf(request));
     }
   });
 
@@ -176,15 +199,14 @@ test('No page leave signal is sent when `data-page-engagement` is "false"', asyn
 
   const nextPageviewPromise = page.waitForRequest(
     (request) =>
-      isPageview(request) &&
-      request.postDataJSON()['url'] === 'http://127.0.0.1:3000/simple-request.html'
+      isPageview(request) && eventOf(request)['url'] === 'http://127.0.0.1:3000/simple-request.html'
   );
 
   await page.getByTestId('next-page-link').click();
   await nextPageviewPromise;
 
-  expect(requests.filter((body) => body['type'] === PAGE_LEAVE)).toHaveLength(0);
+  expect(events.filter((event) => event['type'] === PAGE_LEAVE)).toHaveLength(0);
   expect(
-    requests.filter((body) => body['url'] === 'http://127.0.0.1:3000/page-engagement-disabled.html')
+    events.filter((event) => event['url'] === 'http://127.0.0.1:3000/page-engagement-disabled.html')
   ).toHaveLength(1);
 });
