@@ -1,8 +1,12 @@
+## v3.0.0 (unreleased)
 
+#### :rocket: Enhancement
+* Send a `TelemetryDeck.Web.pageLeave` event when a page is hidden or unloaded, carrying scroll depth and engaged time as `TelemetryDeck.PageEngagement.*` parameters. On by default, opt out with `data-page-engagement="false"`.
+* Send events to the Web events v3 endpoint (`/v3/w/`) as flat events. Parameters sit at the top level of the event instead of inside a `payload` object and keep their JSON types, so numbers such as scroll depth arrive as numbers. `isTestMode` is always sent, as the string `"true"` or `"false"`.
 
-
-
-
+#### :boom: Breaking Change
+* The default `data-api` is now `https://nom.telemetrydeck.com/v3/w/`. A custom `data-api` must point at a Web events v3 endpoint; the `/v2/w/` endpoint does not accept the new request format.
+* `telemetryClientVersion` is no longer sent. Use `TelemetryDeck.SDK.name`, `TelemetryDeck.SDK.version` or `TelemetryDeck.SDK.nameAndVersion` instead.
 
 ## v1.0.5 (2022-05-27)
 
