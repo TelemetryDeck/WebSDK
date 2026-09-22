@@ -56,7 +56,9 @@ jobs:
           sas_token: ${{ secrets.CDN_AZURE_SAS_TOKEN }}
           overwrite: 'true'
           # Beta builds change with every push; keep the CDN from holding on to them.
-          extra_args: --content-cache-control "public, max-age=60"
+          # The action splits extra_args on whitespace and does not honor quotes,
+          # so the value must not contain spaces.
+          extra_args: --content-cache-control max-age=60
 
       - name: Summary
         run: |
