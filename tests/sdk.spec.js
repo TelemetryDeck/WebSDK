@@ -109,9 +109,10 @@ test('Sends a page leave signal with scroll depth and engaged time', async ({ pa
   await page.goto('/page-engagement.html');
   await pageviewPromise;
 
-  // Scroll one viewport height down on a page that is four viewports tall,
-  // so two of four viewports have been seen: 50%.
-  await page.evaluate(() => window.scrollTo(0, window.innerHeight));
+  // Scroll 1.2 viewport heights down on a page that is four viewports tall,
+  // so 2.2 of 4 viewports have been seen: 55%. Staying clear of the 50%
+  // boundary keeps the milestone assertion stable across browsers.
+  await page.evaluate(() => window.scrollTo(0, window.innerHeight * 1.2));
   // Stay on the page for a little over a second so engaged time reaches 1s.
   await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 1100)));
 
@@ -133,8 +134,8 @@ test('Sends a page leave signal with scroll depth and engaged time', async ({ pa
   expect(body['appID']).toBe(APP_ID);
   expect(body['url']).toBe('http://127.0.0.1:3000/page-engagement.html');
   expect(body['type']).toBe(PAGE_LEAVE);
-  expect(body['payload']['TelemetryDeck.PageEngagement.scrollDepth']).toBeGreaterThanOrEqual(50);
-  expect(body['payload']['TelemetryDeck.PageEngagement.scrollDepth']).toBeLessThan(75);
+  expect(body['payload']['TelemetryDeck.PageEngagement.scrollDepth']).toBeGreaterThanOrEqual(52);
+  expect(body['payload']['TelemetryDeck.PageEngagement.scrollDepth']).toBeLessThanOrEqual(58);
   expect(body['payload']['TelemetryDeck.PageEngagement.scrollDepthMilestone']).toBe('50');
   expect(body['payload']['TelemetryDeck.PageEngagement.engagedSeconds']).toBeGreaterThanOrEqual(1);
 
