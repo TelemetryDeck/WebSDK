@@ -1,0 +1,71 @@
+name: Deploy Beta
+
+# Publishes the bundle of a pull request next to the production one as
+# https://cdn.telemetrydeck.com/websdk/telemetrydeck-beta-<branch>.min.js
+# so it can be tried on real sites before it reaches telemetrydeck.min.js.
+# The production deploy (deploy.yml) publishes main as telemetrydeck.min.js.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: deploy-beta-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  upload:
+    name: Building and Uploading Beta
+    runs-on: ubuntu-latest
+    # Pull requests from forks do not get the CDN secret.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install
+      - run: pnpm build
+
+      - name: Name the beta file after the branch
+        id: beta
+        env:
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          # Keep the URL simple: lowercase letters, digits and single dashes.
+          branch="$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')"
+          if [ -z "$branch" ]; then
+            echo "Branch name '$BRANCH' leaves nothing usable for a file name." >&2
+            exit 1
+          fi
+          file="telemetrydeck-beta-${branch}.min.js"
+          mkdir websdk
+          mv dist/telemetrydeck.min.js "websdk/${file}"
+          echo "file=$file" >> "$GITHUB_OUTPUT"
+          echo "url=https://cdn.telemetrydeck.com/websdk/${file}" >> "$GITHUB_OUTPUT"
+
+      - uses: bacongobbler/azure-blob-storage-upload@main
+        with:
+          source_dir: websdk
+          container_name: websdk
+          account_name: telemetrydeckcdn
+          sas_token: ${{ secrets.CDN_AZURE_SAS_TOKEN }}
+          overwrite: 'true'
+          # Beta builds change with every push; keep the CDN from holding on to them.
+          extra_args: --content-cache-control "public, max-age=60"
+
+      - name: Summary
+        run: |
+          {
+            echo "### Beta build published"
+            echo
+            echo "Load it on a test page with:"
+            echo
+            echo '```html'
+            echo "<script async src=\"${{ steps.beta.outputs.url }}\" data-app-id=\"<YOUR APP ID>\"></script>"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
