@@ -1,8 +1,8 @@
+## v1.2.0 (unreleased)
 
-
-
-
-
+#### :rocket: Enhancement
+* [#12](https://github.com/TelemetryDeck/WebSDK/issues/12) Send a `TelemetryDeck.Web.linkClick` signal when an outbound link is clicked, with the destination as `TelemetryDeck.Link.*` parameters. Any element can be tracked explicitly with `data-td-link`, excluded with `data-td-ignore`; automatic tracking can be turned off with `data-outbound-links="false"`.
+* Send a `TelemetryDeck.Web.pageLeave` signal when a page is hidden or unloaded, carrying scroll depth and engaged time as `TelemetryDeck.PageEngagement.*` parameters. On by default, opt out with `data-page-engagement="false"`.
 
 ## v1.0.5 (2022-05-27)
 
