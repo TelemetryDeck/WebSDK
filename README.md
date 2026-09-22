@@ -15,7 +15,7 @@ Note that if you are a programmer working on a node package based JavaScript app
 Once you have your App ID, edit the source code of your website and add the following code snippet to the `<head>` section of every page, making sure to replace `<YOUR APP ID>` with your actual App ID:
 
 ```html
-<script
+<script async
   src="https://cdn.telemetrydeck.com/websdk/telemetrydeck.min.js"
   data-app-id="<YOUR APP ID>"
 ></script>
