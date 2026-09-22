@@ -1,0 +1,39 @@
+name: Clean Up Beta
+
+# Removes the beta bundle that deploy-beta.yml published for a pull request
+# (https://cdn.telemetrydeck.com/websdk/telemetrydeck-beta-<branch>.min.js)
+# once that pull request is closed or merged.
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  delete:
+    name: Deleting Beta
+    runs-on: ubuntu-latest
+    # Pull requests from forks never published a beta bundle.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Delete the beta file
+        env:
+          BRANCH: ${{ github.head_ref }}
+          SAS_TOKEN: ${{ secrets.CDN_AZURE_SAS_TOKEN }}
+        run: |
+          # Same derivation as in deploy-beta.yml.
+          branch="$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')"
+          file="telemetrydeck-beta-${branch}.min.js"
+
+          if output="$(az storage blob delete \
+                --account-name telemetrydeckcdn \
+                --container-name websdk \
+                --name "$file" \
+                --sas-token "$SAS_TOKEN" \
+                --output none 2>&1)"; then
+            echo "Deleted $file"
+          elif printf '%s' "$output" | grep -q "BlobNotFound"; then
+            echo "$file was not on the CDN, nothing to delete"
+          else
+            printf '%s\n' "$output" >&2
+            exit 1
+          fi
