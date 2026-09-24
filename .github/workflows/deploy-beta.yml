@@ -17,8 +17,12 @@ jobs:
   upload:
     name: Building and Uploading Beta
     runs-on: ubuntu-latest
-    # Pull requests from forks do not get the CDN secret.
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    # Pull requests from forks do not get the CDN secret, and neither do
+    # workflows that Dependabot triggers (they only see Dependabot secrets).
+    # Dependency bumps do not need a beta bundle anyway.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login != 'dependabot[bot]'
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
