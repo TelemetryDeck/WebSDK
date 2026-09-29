@@ -12,8 +12,12 @@ jobs:
   delete:
     name: Deleting Beta
     runs-on: ubuntu-latest
-    # Pull requests from forks never published a beta bundle.
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    # Pull requests from forks and from Dependabot never published a beta
+    # bundle (see deploy-beta.yml), and Dependabot's runs would not have the
+    # CDN secret to delete it with.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login != 'dependabot[bot]'
     steps:
       - name: Delete the beta file
         env:
